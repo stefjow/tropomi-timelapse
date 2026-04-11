@@ -53,6 +53,7 @@ const map = new maplibregl.Map({
 });
 
 map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
+map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
 // --- Load metadata and init ---
 
@@ -113,7 +114,9 @@ async function init() {
       });
     });
 
-    // Cities layer
+    // Cities layer — sync visibility with checkbox state (browser may remember it across reloads)
+    const citiesVis = document.getElementById('toggle-cities').checked ? 'visible' : 'none';
+
     map.addSource('cities', {
       type: 'geojson',
       data: 'data/cities.geojson'
@@ -136,7 +139,7 @@ async function init() {
         'text-offset': [0.8, 0],
         'text-max-width': 8,
         'text-allow-overlap': false,
-        'visibility': 'visible'
+        'visibility': citiesVis
       },
       paint: {
         'text-color': '#ffffff',
@@ -150,7 +153,7 @@ async function init() {
       id: 'cities-glow',
       type: 'circle',
       source: 'cities',
-      layout: { 'visibility': 'visible' },
+      layout: { 'visibility': citiesVis },
       paint: {
         'circle-radius': [
           'interpolate', ['linear'], ['zoom'],
@@ -170,7 +173,7 @@ async function init() {
       id: 'cities-dots',
       type: 'circle',
       source: 'cities',
-      layout: { 'visibility': 'visible' },
+      layout: { 'visibility': citiesVis },
       paint: {
         'circle-radius': [
           'interpolate', ['linear'], ['zoom'],
