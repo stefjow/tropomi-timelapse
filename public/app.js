@@ -8,6 +8,7 @@ let months = [];
 let currentIndex = 0;
 let playing = false;
 let playInterval = null;
+let preloading = false;
 const PLAY_SPEED_MS = 1500;
 
 // --- PMTiles protocol ---
@@ -230,22 +231,90 @@ function goToMonth(index) {
   updateMonthLabel();
 }
 
+// --- Preloading ---
+
+function preloadAllTiles() {
+  return new Promise((resolve) => {
+    // Make all layers visible with 0 opacity to trigger tile loading
+    months.forEach((_, i) => {
+      map.setPaintProperty(`no2-layer-${i}`, 'raster-opacity', 0);
+      map.setLayoutProperty(`no2-layer-${i}`, 'visibility', 'visible');
+    });
+
+    // 'idle' fires once all visible tiles are loaded and rendered
+    map.once('idle', () => resolve());
+  });
+}
+
+function resetLayers() {
+  months.forEach((_, i) => {
+    map.setLayoutProperty(`no2-layer-${i}`, 'visibility', i === currentIndex ? 'visible' : 'none');
+    map.setPaintProperty(`no2-layer-${i}`, 'raster-opacity', 0.6);
+  });
+}
+
 // --- Playback ---
 
-function togglePlay() {
-  playing = !playing;
-  document.getElementById('icon-play').style.display = playing ? 'none' : '';
-  document.getElementById('icon-pause').style.display = playing ? '' : 'none';
+function startInterval() {
+  playInterval = setInterval(() => {
+    goToMonth(currentIndex + 1);
+  }, PLAY_SPEED_MS);
+}
+
+function stopInterval() {
+  clearInterval(playInterval);
+  playInterval = null;
+}
+
+async function preloadAndPlay() {
+  preloading = true;
+  document.getElementById('month-label').textContent = 'Loading\u2026';
+
+  await preloadAllTiles();
+
+  if (!preloading) return; // was cancelled during await
+  preloading = false;
+
+  resetLayers();
+  updateMonthLabel();
+  startInterval();
+}
+
+async function togglePlay() {
+  if (preloading) {
+    // Cancel preload
+    preloading = false;
+    playing = false;
+    resetLayers();
+    updateMonthLabel();
+    document.getElementById('icon-play').style.display = '';
+    document.getElementById('icon-pause').style.display = 'none';
+    return;
+  }
 
   if (playing) {
-    playInterval = setInterval(() => {
-      goToMonth(currentIndex + 1);
-    }, PLAY_SPEED_MS);
-  } else {
-    clearInterval(playInterval);
-    playInterval = null;
+    // Pause
+    playing = false;
+    stopInterval();
+    document.getElementById('icon-play').style.display = '';
+    document.getElementById('icon-pause').style.display = 'none';
+    return;
   }
+
+  // Start
+  playing = true;
+  document.getElementById('icon-play').style.display = 'none';
+  document.getElementById('icon-pause').style.display = '';
+
+  await preloadAndPlay();
 }
+
+// Re-preload when viewport changes during playback
+map.on('moveend', async () => {
+  if (!playing || preloading) return;
+  stopInterval();
+  await preloadAndPlay();
+});
 
 // --- Event listeners ---
 
