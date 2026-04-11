@@ -1,0 +1,5 @@
+{
+  "title": "Monthly NO₂ Averages",
+  "subtitle": "Tropospheric column density from TROPOMI",
+  "tilesDir": "tiles/rolling"
+}

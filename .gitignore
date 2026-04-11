@@ -1,0 +1,22 @@
+# Raw satellite data (large TIFs, download with data/download.R)
+data/raw/
+
+
+# Generated tiles (rebuild with data/process.R)
+public/tiles/monthly/
+public/tiles/rolling/
+
+# Generated cities (rebuild with data/cities.py)
+public/data/cities.geojson
+
+# Processing temp files
+public/tiles/tmp/
+
+# System
+.DS_Store
+*.aux.xml
+
+# LLMs
+.claude/
+.playwright/
+
