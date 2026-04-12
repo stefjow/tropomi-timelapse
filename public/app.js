@@ -8,7 +8,7 @@ let months = [];
 let currentIndex = 0;
 let playing = false;
 let playInterval = null;
-let preloading = false;
+const PREBUFFER_FRAMES = 5;
 const PLAY_SPEED_MS = 1000;
 
 // --- PMTiles protocol ---
@@ -93,6 +93,16 @@ async function init() {
   timeline.max = months.length - 1;
   timeline.value = 0;
 
+  // Setup buffer indicator segments
+  const bufferContainer = document.getElementById('timeline-buffer');
+  bufferContainer.innerHTML = '';
+  months.forEach((_, i) => {
+    const seg = document.createElement('div');
+    seg.className = 'timeline-buffer-segment';
+    seg.id = `buffer-segment-${i}`;
+    bufferContainer.appendChild(seg);
+  });
+
   map.on('load', () => {
     // Add all monthly NO2 sources and layers upfront for smooth switching
     months.forEach((month, i) => {
@@ -110,6 +120,7 @@ async function init() {
         layout: { 'visibility': i === 0 ? 'visible' : 'none' },
         paint: {
           'raster-opacity': 0.6,
+          'raster-opacity-transition': { duration: 0 },
           'raster-fade-duration': 0
         }
       });
@@ -202,7 +213,13 @@ async function init() {
     map.on('mouseenter', 'cities-dots', () => { map.getCanvas().style.cursor = 'pointer'; });
     map.on('mouseleave', 'cities-dots', () => { map.getCanvas().style.cursor = ''; });
 
-    updateMonthLabel();
+    map.on('data', (e) => {
+      if (e.sourceId && e.sourceId.startsWith('no2-')) {
+        updateBufferIndicator();
+      }
+    });
+
+    goToMonth(0);
   });
 }
 
@@ -219,83 +236,101 @@ function updateMonthLabel() {
   document.getElementById('month-label').textContent = formatMonth(months[currentIndex]);
 }
 
+function updateBufferIndicator() {
+  if (months.length === 0) return;
+  months.forEach((_, i) => {
+    const seg = document.getElementById(`buffer-segment-${i}`);
+    if (!seg) return;
+
+    let isPrebufferTarget = false;
+    for (let p = 0; p <= PREBUFFER_FRAMES; p++) {
+      if (i === (currentIndex + p) % months.length) isPrebufferTarget = true;
+    }
+
+    if (isPrebufferTarget) {
+      const sourceId = `no2-${i}`;
+      const isLoaded = map.getSource(sourceId) && map.isSourceLoaded(sourceId);
+
+      if (isLoaded) {
+        seg.className = 'timeline-buffer-segment loaded';
+      } else {
+        seg.className = 'timeline-buffer-segment buffering';
+      }
+    } else {
+      seg.className = 'timeline-buffer-segment';
+    }
+  });
+}
+
 function goToMonth(index) {
   if (months.length === 0) return;
-  const prevIndex = currentIndex;
   currentIndex = ((index % months.length) + months.length) % months.length;
 
-  map.setLayoutProperty(`no2-layer-${prevIndex}`, 'visibility', 'none');
-  map.setLayoutProperty(`no2-layer-${currentIndex}`, 'visibility', 'visible');
+  months.forEach((_, i) => {
+    let isPrebuffer = false;
+    for (let p = 1; p <= PREBUFFER_FRAMES; p++) {
+      if (i === (currentIndex + p) % months.length) isPrebuffer = true;
+    }
+    
+    // Keep the immediately previous frame visible but transparent for 1 step to prevent flashing
+    let isPrevious = i === (currentIndex - 1 + months.length) % months.length;
+    
+    if (i === currentIndex) {
+      map.setLayoutProperty(`no2-layer-${i}`, 'visibility', 'visible');
+      map.setPaintProperty(`no2-layer-${i}`, 'raster-opacity', 0.6);
+    } else if (isPrebuffer || isPrevious) {
+      map.setLayoutProperty(`no2-layer-${i}`, 'visibility', 'visible');
+      map.setPaintProperty(`no2-layer-${i}`, 'raster-opacity', 0);
+    } else {
+      map.setLayoutProperty(`no2-layer-${i}`, 'visibility', 'none');
+    }
+  });
 
   document.getElementById('timeline').value = currentIndex;
   updateMonthLabel();
-}
-
-// --- Preloading ---
-
-function preloadAllTiles() {
-  return new Promise((resolve) => {
-    // Make all layers visible with 0 opacity to trigger tile loading
-    months.forEach((_, i) => {
-      map.setPaintProperty(`no2-layer-${i}`, 'raster-opacity', 0);
-      map.setLayoutProperty(`no2-layer-${i}`, 'visibility', 'visible');
-    });
-
-    // 'idle' fires once all visible tiles are loaded and rendered
-    map.once('idle', () => resolve());
-  });
-}
-
-function resetLayers() {
-  months.forEach((_, i) => {
-    map.setLayoutProperty(`no2-layer-${i}`, 'visibility', i === currentIndex ? 'visible' : 'none');
-    map.setPaintProperty(`no2-layer-${i}`, 'raster-opacity', 0.6);
-  });
+  updateBufferIndicator();
 }
 
 // --- Playback ---
 
+let waitId = 0;
+
+function advanceFrame() {
+  const nextIndex = (currentIndex + 1) % months.length;
+  
+  if (!map.isSourceLoaded(`no2-${nextIndex}`)) {
+    stopInterval();
+    document.getElementById('month-label').textContent = 'Loading\u2026';
+    const currentWaitId = ++waitId;
+    map.once('idle', () => {
+      if (playing && currentWaitId === waitId) {
+        goToMonth(nextIndex);
+        startInterval();
+      }
+    });
+    return;
+  }
+  
+  goToMonth(nextIndex);
+}
+
 function startInterval() {
-  playInterval = setInterval(() => {
-    goToMonth(currentIndex + 1);
-  }, PLAY_SPEED_MS);
+  stopInterval();
+  playInterval = setInterval(advanceFrame, PLAY_SPEED_MS);
 }
 
 function stopInterval() {
-  clearInterval(playInterval);
+  if (playInterval) clearInterval(playInterval);
   playInterval = null;
 }
 
-async function preloadAndPlay() {
-  preloading = true;
-  document.getElementById('month-label').textContent = 'Loading\u2026';
-
-  await preloadAllTiles();
-
-  if (!preloading) return; // was cancelled during await
-  preloading = false;
-
-  resetLayers();
-  updateMonthLabel();
-  startInterval();
-}
-
-async function togglePlay() {
-  if (preloading) {
-    // Cancel preload
-    preloading = false;
-    playing = false;
-    resetLayers();
-    updateMonthLabel();
-    document.getElementById('icon-play').style.display = '';
-    document.getElementById('icon-pause').style.display = 'none';
-    return;
-  }
-
+function togglePlay() {
   if (playing) {
     // Pause
     playing = false;
+    waitId++; // invalidate any pending waits
     stopInterval();
+    updateMonthLabel(); // ensure loading text is cleared
     document.getElementById('icon-play').style.display = '';
     document.getElementById('icon-pause').style.display = 'none';
     return;
@@ -306,24 +341,38 @@ async function togglePlay() {
   document.getElementById('icon-play').style.display = 'none';
   document.getElementById('icon-pause').style.display = '';
 
-  await preloadAndPlay();
+  if (!map.areTilesLoaded()) {
+    document.getElementById('month-label').textContent = 'Loading\u2026';
+    const currentWaitId = ++waitId;
+    map.once('idle', () => {
+      if (playing && currentWaitId === waitId) {
+        updateMonthLabel();
+        startInterval();
+      }
+    });
+  } else {
+    startInterval();
+  }
 }
-
-// Re-preload when viewport changes during playback
-map.on('moveend', async () => {
-  if (!playing || preloading) return;
-  stopInterval();
-  await preloadAndPlay();
-});
 
 // --- Event listeners ---
 
-document.getElementById('btn-prev').addEventListener('click', () => goToMonth(currentIndex - 1));
-document.getElementById('btn-next').addEventListener('click', () => goToMonth(currentIndex + 1));
+function manualSeek(index) {
+  if (playing) {
+    waitId++;
+    stopInterval();
+    startInterval();
+    updateMonthLabel();
+  }
+  goToMonth(index);
+}
+
+document.getElementById('btn-prev').addEventListener('click', () => manualSeek(currentIndex - 1));
+document.getElementById('btn-next').addEventListener('click', () => manualSeek(currentIndex + 1));
 document.getElementById('btn-play').addEventListener('click', togglePlay);
 
 document.getElementById('timeline').addEventListener('input', (e) => {
-  goToMonth(parseInt(e.target.value, 10));
+  manualSeek(parseInt(e.target.value, 10));
 });
 
 // Projection toggle

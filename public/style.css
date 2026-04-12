@@ -316,6 +316,36 @@ h1 sub {
   flex: 1;
   display: flex;
   align-items: center;
+  position: relative;
+  height: 20px;
+}
+
+.timeline-buffer {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  left: 0;
+  right: 0;
+  height: 4px;
+  display: flex;
+  gap: 2px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.timeline-buffer-segment {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  transition: background 0.3s;
+}
+
+.timeline-buffer-segment.buffering {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.timeline-buffer-segment.loaded {
+  background: rgba(138, 180, 248, 0.7);
 }
 
 #timeline {
@@ -323,10 +353,12 @@ h1 sub {
   height: 4px;
   -webkit-appearance: none;
   appearance: none;
-  background: rgba(255, 255, 255, 0.15);
+  background: transparent;
   border-radius: 2px;
   outline: none;
   cursor: pointer;
+  position: relative;
+  z-index: 1;
 }
 
 #timeline::-webkit-slider-thumb {
