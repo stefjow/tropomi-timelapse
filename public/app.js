@@ -8,8 +8,9 @@ let months = [];
 let currentIndex = 0;
 let playing = false;
 let playInterval = null;
-const PREBUFFER_FRAMES = 5;
-const PLAY_SPEED_MS = 1000;
+const PREBUFFER_FRAMES = 10;
+let PLAY_SPEED_MS = 1000;
+let layerStates = [];
 
 // --- PMTiles protocol ---
 
@@ -89,9 +90,18 @@ async function init() {
   }
 
   // Setup timeline slider
+  const n = months.length;
   const timeline = document.getElementById('timeline');
-  timeline.max = months.length - 1;
+  timeline.max = n - 1;
   timeline.value = 0;
+  
+  // Reset playback speed to default on page reload to prevent browser caching stale values
+  document.getElementById('speed-select').value = '1000';
+  PLAY_SPEED_MS = 1000;
+
+  // Align slider thumb (14px wide) to perfectly match the start of each buffer segment
+  timeline.style.left = '-7px';
+  timeline.style.width = `calc(100% * ${n - 1} / ${n} + 14px)`;
 
   // Setup buffer indicator segments
   const bufferContainer = document.getElementById('timeline-buffer');
@@ -247,17 +257,15 @@ function updateBufferIndicator() {
       if (i === (currentIndex + p) % months.length) isPrebufferTarget = true;
     }
 
+    let targetClass = 'timeline-buffer-segment';
     if (isPrebufferTarget) {
       const sourceId = `no2-${i}`;
       const isLoaded = map.getSource(sourceId) && map.isSourceLoaded(sourceId);
+      if (isLoaded) targetClass = 'timeline-buffer-segment loaded';
+    }
 
-      if (isLoaded) {
-        seg.className = 'timeline-buffer-segment loaded';
-      } else {
-        seg.className = 'timeline-buffer-segment buffering';
-      }
-    } else {
-      seg.className = 'timeline-buffer-segment';
+    if (seg.className !== targetClass) {
+      seg.className = targetClass;
     }
   });
 }
@@ -275,14 +283,24 @@ function goToMonth(index) {
     // Keep the immediately previous frame visible but transparent for 1 step to prevent flashing
     let isPrevious = i === (currentIndex - 1 + months.length) % months.length;
     
+    let targetState = 0; // 0 = none, 1 = prebuffer, 2 = visible
     if (i === currentIndex) {
-      map.setLayoutProperty(`no2-layer-${i}`, 'visibility', 'visible');
-      map.setPaintProperty(`no2-layer-${i}`, 'raster-opacity', 0.6);
+      targetState = 2;
     } else if (isPrebuffer || isPrevious) {
-      map.setLayoutProperty(`no2-layer-${i}`, 'visibility', 'visible');
-      map.setPaintProperty(`no2-layer-${i}`, 'raster-opacity', 0);
-    } else {
-      map.setLayoutProperty(`no2-layer-${i}`, 'visibility', 'none');
+      targetState = 1;
+    }
+
+    if (layerStates[i] !== targetState) {
+      if (targetState === 2) {
+        if (layerStates[i] !== 1) map.setLayoutProperty(`no2-layer-${i}`, 'visibility', 'visible');
+        map.setPaintProperty(`no2-layer-${i}`, 'raster-opacity', 0.6);
+      } else if (targetState === 1) {
+        if (layerStates[i] !== 2) map.setLayoutProperty(`no2-layer-${i}`, 'visibility', 'visible');
+        map.setPaintProperty(`no2-layer-${i}`, 'raster-opacity', 0);
+      } else {
+        map.setLayoutProperty(`no2-layer-${i}`, 'visibility', 'none');
+      }
+      layerStates[i] = targetState;
     }
   });
 
@@ -370,6 +388,15 @@ function manualSeek(index) {
 document.getElementById('btn-prev').addEventListener('click', () => manualSeek(currentIndex - 1));
 document.getElementById('btn-next').addEventListener('click', () => manualSeek(currentIndex + 1));
 document.getElementById('btn-play').addEventListener('click', togglePlay);
+
+document.getElementById('speed-select').addEventListener('change', (e) => {
+  PLAY_SPEED_MS = parseInt(e.target.value, 10);
+  if (playing) {
+    waitId++;
+    stopInterval();
+    startInterval();
+  }
+});
 
 document.getElementById('timeline').addEventListener('input', (e) => {
   manualSeek(parseInt(e.target.value, 10));
