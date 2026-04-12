@@ -17,6 +17,35 @@ let layerStates = [];
 const pmtilesProtocol = new pmtiles.Protocol({ metadata: true });
 maplibregl.addProtocol('pmtiles', pmtilesProtocol.tile);
 
+// --- URL State Sync ---
+
+function getUrlParams() {
+  return new URLSearchParams(window.location.search);
+}
+
+const initialParams = getUrlParams();
+const initialLat = initialParams.has('lat') ? parseFloat(initialParams.get('lat')) : 35;
+const initialLng = initialParams.has('lng') ? parseFloat(initialParams.get('lng')) : 20;
+const initialZoom = initialParams.has('z') ? parseFloat(initialParams.get('z')) : 2;
+const initialPitch = initialParams.has('p') ? parseFloat(initialParams.get('p')) : 0;
+const initialBearing = initialParams.has('b') ? parseFloat(initialParams.get('b')) : 0;
+const initialProj = initialParams.get('proj') === 'globe' ? 'globe' : 'mercator';
+const initialBase = initialParams.get('base') === 'satellite' ? 'satellite' : 'dark';
+const initialSpeed = initialParams.has('speed') ? parseInt(initialParams.get('speed'), 10) : 1000;
+const initialPlay = initialParams.get('play') === '1';
+
+if (initialParams.has('cities')) {
+  document.getElementById('toggle-cities').checked = initialParams.get('cities') === '1';
+}
+if (initialProj === 'globe') {
+  document.getElementById('btn-globe').classList.add('active');
+  document.getElementById('btn-flat').classList.remove('active');
+}
+if (initialBase === 'satellite') {
+  document.getElementById('btn-satellite').classList.add('active');
+  document.getElementById('btn-dark').classList.remove('active');
+}
+
 // --- Map ---
 
 const map = new maplibregl.Map({
@@ -40,16 +69,19 @@ const map = new maplibregl.Map({
     layers: [{
       id: 'carto-dark',
       type: 'raster',
-      source: 'carto-dark'
+      source: 'carto-dark',
+      layout: { 'visibility': initialBase === 'dark' ? 'visible' : 'none' }
     }, {
       id: 'esri-satellite',
       type: 'raster',
       source: 'esri-satellite',
-      layout: { 'visibility': 'none' }
+      layout: { 'visibility': initialBase === 'satellite' ? 'visible' : 'none' }
     }]
   },
-  center: [20, 35],
-  zoom: 2,
+  center: [initialLng, initialLat],
+  zoom: initialZoom,
+  pitch: initialPitch,
+  bearing: initialBearing,
   maxZoom: 16,
   attributionControl: false
 });
@@ -96,8 +128,8 @@ async function init() {
   timeline.value = 0;
   
   // Reset playback speed to default on page reload to prevent browser caching stale values
-  document.getElementById('speed-select').value = '1000';
-  PLAY_SPEED_MS = 1000;
+  document.getElementById('speed-select').value = initialSpeed.toString();
+  PLAY_SPEED_MS = initialSpeed;
 
   // Align slider thumb (14px wide) to perfectly match the start of each buffer segment
   timeline.style.left = '-7px';
@@ -114,6 +146,10 @@ async function init() {
   });
 
   map.on('load', () => {
+    if (initialProj === 'globe') {
+      map.setProjection({ type: 'globe' });
+    }
+
     // Add all monthly NO2 sources and layers upfront for smooth switching
     months.forEach((month, i) => {
       map.addSource(`no2-${i}`, {
@@ -229,7 +265,13 @@ async function init() {
       }
     });
 
-    goToMonth(0);
+    map.on('moveend', updateUrlState);
+    map.on('zoomend', updateUrlState);
+    map.on('pitchend', updateUrlState);
+    map.on('rotateend', updateUrlState);
+
+    const initialMonth = initialParams.has('month') ? parseInt(initialParams.get('month'), 10) : 0;
+    goToMonth(initialMonth);
   });
 }
 
@@ -240,6 +282,44 @@ function pmtilesUrl(index) {
 function formatMonth(monthStr) {
   const [year, month] = monthStr.split('-');
   return `${MONTH_NAMES[parseInt(month, 10) - 1]} ${year}`;
+}
+
+function updateUrlState() {
+  const center = map.getCenter();
+  const zoom = map.getZoom();
+  const pitch = map.getPitch();
+  const bearing = map.getBearing();
+  
+  const params = getUrlParams();
+  params.set('month', currentIndex);
+  params.set('lat', center.lat.toFixed(4));
+  params.set('lng', center.lng.toFixed(4));
+  params.set('z', zoom.toFixed(2));
+  if (pitch > 0) params.set('p', pitch.toFixed(1));
+  else params.delete('p');
+  if (bearing !== 0) params.set('b', bearing.toFixed(1));
+  else params.delete('b');
+  
+  const isGlobe = document.getElementById('btn-globe').classList.contains('active');
+  if (isGlobe) params.set('proj', 'globe');
+  else params.delete('proj');
+
+  const isSatellite = document.getElementById('btn-satellite').classList.contains('active');
+  if (isSatellite) params.set('base', 'satellite');
+  else params.delete('base');
+
+  const showCities = document.getElementById('toggle-cities').checked;
+  if (showCities) params.set('cities', '1');
+  else params.delete('cities');
+
+  const speed = document.getElementById('speed-select').value;
+  if (speed !== '1000') params.set('speed', speed);
+  else params.delete('speed');
+
+  if (playing) params.set('play', '1');
+  else params.delete('play');
+  
+  window.history.replaceState(null, '', '?' + params.toString());
 }
 
 function updateMonthLabel() {
@@ -307,6 +387,7 @@ function goToMonth(index) {
   document.getElementById('timeline').value = currentIndex;
   updateMonthLabel();
   updateBufferIndicator();
+  updateUrlState();
 }
 
 // --- Playback ---
@@ -351,6 +432,7 @@ function togglePlay() {
     updateMonthLabel(); // ensure loading text is cleared
     document.getElementById('icon-play').style.display = '';
     document.getElementById('icon-pause').style.display = 'none';
+    updateUrlState();
     return;
   }
 
@@ -358,6 +440,7 @@ function togglePlay() {
   playing = true;
   document.getElementById('icon-play').style.display = 'none';
   document.getElementById('icon-pause').style.display = '';
+  updateUrlState();
 
   if (!map.areTilesLoaded()) {
     document.getElementById('month-label').textContent = 'Loading\u2026';
@@ -396,6 +479,7 @@ document.getElementById('speed-select').addEventListener('change', (e) => {
     stopInterval();
     startInterval();
   }
+  updateUrlState();
 });
 
 document.getElementById('timeline').addEventListener('input', (e) => {
@@ -407,12 +491,14 @@ document.getElementById('btn-flat').addEventListener('click', () => {
   map.setProjection({ type: 'mercator' });
   document.getElementById('btn-flat').classList.add('active');
   document.getElementById('btn-globe').classList.remove('active');
+  updateUrlState();
 });
 
 document.getElementById('btn-globe').addEventListener('click', () => {
   map.setProjection({ type: 'globe' });
   document.getElementById('btn-globe').classList.add('active');
   document.getElementById('btn-flat').classList.remove('active');
+  updateUrlState();
 });
 
 // Base map toggle
@@ -421,6 +507,7 @@ document.getElementById('btn-dark').addEventListener('click', () => {
   map.setLayoutProperty('esri-satellite', 'visibility', 'none');
   document.getElementById('btn-dark').classList.add('active');
   document.getElementById('btn-satellite').classList.remove('active');
+  updateUrlState();
 });
 
 document.getElementById('btn-satellite').addEventListener('click', () => {
@@ -428,6 +515,7 @@ document.getElementById('btn-satellite').addEventListener('click', () => {
   map.setLayoutProperty('esri-satellite', 'visibility', 'visible');
   document.getElementById('btn-satellite').classList.add('active');
   document.getElementById('btn-dark').classList.remove('active');
+  updateUrlState();
 });
 
 // Cities toggle
@@ -436,6 +524,22 @@ document.getElementById('toggle-cities').addEventListener('change', (e) => {
   map.setLayoutProperty('cities-labels', 'visibility', vis);
   map.setLayoutProperty('cities-dots', 'visibility', vis);
   map.setLayoutProperty('cities-glow', 'visibility', vis);
+  updateUrlState();
+});
+
+// Share button
+document.getElementById('btn-share').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(window.location.href);
+    const textSpan = document.getElementById('share-text');
+    const originalText = textSpan.textContent;
+    textSpan.textContent = 'Copied!';
+    setTimeout(() => {
+      textSpan.textContent = originalText;
+    }, 2000);
+  } catch (err) {
+    console.error('Failed to copy URL: ', err);
+  }
 });
 
 // Sidebar toggle
