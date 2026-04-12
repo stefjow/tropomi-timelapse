@@ -19,7 +19,7 @@ force_recalc <- TRUE
 # Color scale: hot-body with blue peaks (inspired by libmap.org NO2 layer)
 # Tuned for NO2 tropospheric column (µmol/m²)
 scale_min <- 0
-scale_max <- 150
+scale_max <- 180
 
 no2_colors <- c(
   "#e85555",  # lightest red
@@ -29,6 +29,9 @@ no2_colors <- c(
   "#8b1a1a",  # dark red
   "#6b1010",  # deeper red
   "#4a0c0c",  # very dark red
+  "#691814",  # dark maroon
+  "#87241d",  # dark brick red
+  "#a63025",  # brick red
   "#c43c2d",  # red-orange
   "#e06830",  # orange
   "#f0a030",  # golden orange

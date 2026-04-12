@@ -346,7 +346,28 @@ h1 sub {
   box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
 }
 
-/* --- MapLibre attribution --- */
+/* --- MapLibre controls --- */
+
+.maplibregl-ctrl-group {
+  background: rgba(0, 0, 0, 0.8) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.maplibregl-ctrl-group button {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.maplibregl-ctrl-group button + button {
+  border-top-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.maplibregl-ctrl-group button:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: invert(1);
+}
 
 .maplibregl-ctrl-bottom-right {
   bottom: 52px;

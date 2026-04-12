@@ -2,7 +2,7 @@
 
 Interactive map visualization of global nitrogen dioxide (NO2) tropospheric column density from the Sentinel-5P TROPOMI instrument.
 
-Live at: [no2.bbble.org](https://no2.bbble.org)
+Live at: [no2.libmap.org](https://no2.libmap.org)
 
 ## Overview
 
