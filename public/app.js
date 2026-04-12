@@ -9,7 +9,7 @@ let currentIndex = 0;
 let playing = false;
 let playInterval = null;
 let preloading = false;
-const PLAY_SPEED_MS = 1500;
+const PLAY_SPEED_MS = 1000;
 
 // --- PMTiles protocol ---
 
@@ -131,9 +131,9 @@ async function init() {
         'text-field': ['get', 'name'],
         'text-size': [
           'interpolate', ['linear'], ['zoom'],
-          2, ['case', ['>=', ['get', 'population'], 5000000], 11, 0],
-          4, ['case', ['>=', ['get', 'population'], 1000000], 11, 0],
-          6, ['case', ['>=', ['get', 'population'], 300000], 10, 0],
+          2, ['case', ['>=', ['get', 'population'], 5000000], 22, 0],
+          4, ['case', ['>=', ['get', 'population'], 1000000], 22, 0],
+          6, ['case', ['>=', ['get', 'population'], 500000], 20, 0],
           8, 10
         ],
         'text-anchor': 'left',
@@ -159,8 +159,8 @@ async function init() {
         'circle-radius': [
           'interpolate', ['linear'], ['zoom'],
           2, ['case', ['>=', ['get', 'population'], 5000000], 10, 0],
-          4, ['case', ['>=', ['get', 'population'], 1000000], 8, 0],
-          6, ['case', ['>=', ['get', 'population'], 300000], 7, 0],
+          4, ['case', ['>=', ['get', 'population'], 1000000], 9, 0],
+          6, ['case', ['>=', ['get', 'population'], 500000], 8, 0],
           8, 7
         ],
         'circle-color': '#8ab4f8',
@@ -178,10 +178,10 @@ async function init() {
       paint: {
         'circle-radius': [
           'interpolate', ['linear'], ['zoom'],
-          2, ['case', ['>=', ['get', 'population'], 5000000], 4, 0],
-          4, ['case', ['>=', ['get', 'population'], 1000000], 3.5, 0],
-          6, ['case', ['>=', ['get', 'population'], 300000], 3, 0],
-          8, 3
+          2, ['case', ['>=', ['get', 'population'], 5000000], 3, 0],
+          4, ['case', ['>=', ['get', 'population'], 1000000], 5, 0],
+          6, ['case', ['>=', ['get', 'population'], 500000], 5, 0],
+          8, 5
         ],
         'circle-color': 'rgba(255, 100, 120, 0.5)',
         'circle-stroke-width': 0.5,
