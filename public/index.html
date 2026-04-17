@@ -54,6 +54,18 @@
       </div>
 
       <div class="control-group">
+        <label>Jump to Region</label>
+        <div class="region-grid">
+          <button class="btn" data-region="europe">Europe</button>
+          <button class="btn" data-region="east-asia">E. Asia</button>
+          <button class="btn" data-region="south-asia">S. Asia</button>
+          <button class="btn" data-region="north-america">N. America</button>
+          <button class="btn" data-region="south-america">S. America</button>
+          <button class="btn" data-region="southern-africa">S. Africa</button>
+        </div>
+      </div>
+
+      <div class="control-group">
         <label>Share</label>
         <div class="button-group">
           <button id="btn-share" class="btn" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
@@ -80,6 +92,12 @@
 
   <!-- Map -->
   <div id="map"></div>
+
+  <!-- First-visit hint for range handles -->
+  <div id="range-hint" class="range-hint" hidden>
+    <span>Drag the blue handles to limit the playback range</span>
+    <button class="range-hint-close" type="button" aria-label="Dismiss">&times;</button>
+  </div>
 
   <!-- Bottom bar -->
   <div id="bottom-bar">
@@ -113,12 +131,15 @@
         <select id="month-select" class="month-select" aria-label="Jump to month"></select>
       </span>
     </div>
-    <div class="timeline-wrap">
-      <div id="timeline-buffer" class="timeline-buffer"></div>
-      <div id="timeline-range-band" class="timeline-range-band"></div>
-      <input type="range" id="range-start" class="range-handle" min="0" max="0" value="0" step="1" aria-label="Playback range start">
-      <input type="range" id="range-end" class="range-handle" min="0" max="0" value="0" step="1" aria-label="Playback range end">
-      <input type="range" id="timeline" min="0" max="0" value="0" step="1">
+    <div class="timeline-col">
+      <div class="timeline-wrap">
+        <div id="timeline-buffer" class="timeline-buffer"></div>
+        <div id="timeline-range-band" class="timeline-range-band"></div>
+        <input type="range" id="range-start" class="range-handle" min="0" max="0" value="0" step="1" aria-label="Playback range start">
+        <input type="range" id="range-end" class="range-handle" min="0" max="0" value="0" step="1" aria-label="Playback range end">
+        <input type="range" id="timeline" min="0" max="0" value="0" step="1">
+      </div>
+      <div id="timeline-years" class="timeline-years"></div>
     </div>
   </div>
 

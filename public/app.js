@@ -165,6 +165,8 @@ async function init() {
   rangeEndEl.value = rangeEnd;
   updateRangeBand();
 
+  maybeShowRangeHint(rangeStartEl, rangeEndEl);
+
   // Setup buffer indicator segments
   const bufferContainer = document.getElementById('timeline-buffer');
   bufferContainer.innerHTML = '';
@@ -183,6 +185,21 @@ async function init() {
     opt.value = i;
     opt.textContent = formatMonth(m);
     monthSelect.appendChild(opt);
+  });
+
+  // Year labels under the timeline — one per year boundary
+  const yearsContainer = document.getElementById('timeline-years');
+  yearsContainer.innerHTML = '';
+  let lastYear = null;
+  months.forEach((m, i) => {
+    const year = m.split('-')[0];
+    if (year !== lastYear) {
+      const span = document.createElement('span');
+      span.textContent = year;
+      span.style.left = `${(i / n) * 100}%`;
+      yearsContainer.appendChild(span);
+      lastYear = year;
+    }
   });
 
   map.on('load', () => {
@@ -376,6 +393,28 @@ function updateRangeBand() {
   const widthPct = (rangeEnd - rangeStart + 1) / n * 100;
   band.style.left = `${leftPct}%`;
   band.style.width = `${widthPct}%`;
+}
+
+function maybeShowRangeHint(rangeStartEl, rangeEndEl) {
+  try {
+    if (localStorage.getItem('range-hint-dismissed') === '1') return;
+  } catch (e) { /* storage unavailable */ }
+  if (initialParams.get('range')) return;
+
+  const hint = document.getElementById('range-hint');
+  hint.hidden = false;
+
+  const dismiss = () => {
+    if (hint.hidden) return;
+    hint.hidden = true;
+    try { localStorage.setItem('range-hint-dismissed', '1'); } catch (e) { /* ignore */ }
+    rangeStartEl.removeEventListener('input', dismiss);
+    rangeEndEl.removeEventListener('input', dismiss);
+  };
+  hint.querySelector('.range-hint-close').addEventListener('click', dismiss);
+  rangeStartEl.addEventListener('input', dismiss);
+  rangeEndEl.addEventListener('input', dismiss);
+  setTimeout(dismiss, 12000);
 }
 
 function updatePlayButtonState() {
@@ -679,6 +718,22 @@ document.getElementById('btn-share').addEventListener('click', async () => {
   } catch (err) {
     console.error('Failed to copy URL: ', err);
   }
+});
+
+// Region presets
+const REGIONS = {
+  'europe': { center: [10, 50], zoom: 3.5 },
+  'east-asia': { center: [115, 32], zoom: 3 },
+  'south-asia': { center: [80, 23], zoom: 3.5 },
+  'north-america': { center: [-95, 40], zoom: 3 },
+  'south-america': { center: [-60, -15], zoom: 3 },
+  'southern-africa': { center: [25, -28], zoom: 3.5 },
+};
+document.querySelectorAll('.region-grid .btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const r = REGIONS[btn.dataset.region];
+    if (r) map.flyTo({ center: r.center, zoom: r.zoom, duration: 1500, essential: true });
+  });
 });
 
 // Sidebar toggle

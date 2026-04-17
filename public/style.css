@@ -161,6 +161,28 @@ h1 sub {
   color: #ccc;
 }
 
+.region-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.region-grid .btn {
+  padding: 7px 0;
+  font-size: 12px;
+  border: none;
+}
+
+.region-grid .btn:nth-child(odd) {
+  border-right: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.region-grid .btn:not(:nth-last-child(-n+2)) {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
 /* --- Legend --- */
 
 .legend {
@@ -372,12 +394,38 @@ h1 sub {
 
 /* --- Timeline slider --- */
 
-.timeline-wrap {
+.timeline-col {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  justify-content: center;
+  min-width: 0;
+}
+
+.timeline-wrap {
   display: flex;
   align-items: center;
   position: relative;
   height: 20px;
+}
+
+.timeline-years {
+  position: relative;
+  height: 11px;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.45);
+  pointer-events: none;
+  user-select: none;
+}
+
+.timeline-years span {
+  position: absolute;
+  top: 0;
+  padding-left: 3px;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+  line-height: 11px;
+  white-space: nowrap;
 }
 
 .timeline-buffer {
@@ -516,6 +564,65 @@ h1 sub {
   box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
 }
 
+/* --- Range hint --- */
+
+.range-hint {
+  position: fixed;
+  bottom: calc(var(--bottom-bar-height) + 14px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(138, 180, 248, 0.95);
+  color: #0a1a3a;
+  padding: 7px 6px 7px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 15;
+  animation: hint-fade-in 0.25s ease-out;
+  max-width: 90vw;
+}
+
+.range-hint[hidden] {
+  display: none;
+}
+
+.range-hint::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid rgba(138, 180, 248, 0.95);
+}
+
+.range-hint-close {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  opacity: 0.55;
+}
+
+.range-hint-close:hover {
+  opacity: 1;
+}
+
+@keyframes hint-fade-in {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
 /* --- MapLibre controls --- */
 
 .maplibregl-ctrl-group {
@@ -547,7 +654,7 @@ h1 sub {
 
 @media (max-width: 600px) {
   :root {
-    --bottom-bar-height: 88px;
+    --bottom-bar-height: 100px;
     --range-thumb-w: 14px;
   }
   .sidebar {
@@ -585,8 +692,11 @@ h1 sub {
   .speed-select {
     margin-left: 2px;
   }
+  .timeline-col {
+    flex: 0 0 auto;
+  }
   .timeline-wrap {
-    flex: 0 0 28px;
+    height: 28px;
   }
   .range-handle::-webkit-slider-thumb {
     height: 22px;
