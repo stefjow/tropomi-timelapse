@@ -204,30 +204,6 @@ h1 sub {
   margin-top: 4px;
 }
 
-/* --- Toggle row --- */
-
-.toggle-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.toggle-row input[type="checkbox"] {
-  margin: 0;
-  accent-color: #8ab4f8;
-}
-
-.toggle-row label {
-  display: inline;
-  text-transform: none;
-  letter-spacing: 0;
-  color: #aaa;
-  font-size: 13px;
-  line-height: 1;
-  margin-bottom: 0;
-  cursor: pointer;
-}
-
 /* --- Popup --- */
 
 .maplibregl-popup-content {

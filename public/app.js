@@ -41,8 +41,10 @@ const initialBase = initialParams.get('base') === 'satellite' ? 'satellite' : 'd
 const initialSpeed = initialParams.has('speed') ? parseInt(initialParams.get('speed'), 10) : 750;
 const initialPlay = initialParams.get('play') === '1';
 
-if (initialParams.has('cities')) {
-  document.getElementById('toggle-cities').checked = initialParams.get('cities') === '1';
+if (initialParams.get('cities') === '1') {
+  const btn = document.getElementById('toggle-cities');
+  btn.classList.add('active');
+  btn.setAttribute('aria-pressed', 'true');
 }
 if (initialProj === 'globe') {
   document.getElementById('btn-globe').classList.add('active');
@@ -210,8 +212,8 @@ async function init() {
       });
     });
 
-    // Cities layer — sync visibility with checkbox state (browser may remember it across reloads)
-    const citiesVis = document.getElementById('toggle-cities').checked ? 'visible' : 'none';
+    // Cities layer — sync visibility with toggle state (browser may remember it across reloads)
+    const citiesVis = document.getElementById('toggle-cities').classList.contains('active') ? 'visible' : 'none';
 
     map.addSource('cities', {
       type: 'geojson',
@@ -346,7 +348,7 @@ function updateUrlState() {
   if (isSatellite) params.set('base', 'satellite');
   else params.delete('base');
 
-  const showCities = document.getElementById('toggle-cities').checked;
+  const showCities = document.getElementById('toggle-cities').classList.contains('active');
   if (showCities) params.set('cities', '1');
   else params.delete('cities');
 
@@ -653,8 +655,11 @@ document.getElementById('btn-satellite').addEventListener('click', () => {
 });
 
 // Cities toggle
-document.getElementById('toggle-cities').addEventListener('change', (e) => {
-  const vis = e.target.checked ? 'visible' : 'none';
+document.getElementById('toggle-cities').addEventListener('click', (e) => {
+  const btn = e.currentTarget;
+  const active = btn.classList.toggle('active');
+  btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  const vis = active ? 'visible' : 'none';
   map.setLayoutProperty('cities-labels', 'visibility', vis);
   map.setLayoutProperty('cities-dots', 'visibility', vis);
   map.setLayoutProperty('cities-glow', 'visibility', vis);
