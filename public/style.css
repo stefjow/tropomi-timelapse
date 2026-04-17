@@ -681,7 +681,7 @@ h1 sub {
     flex-direction: column;
     align-items: stretch;
     justify-content: center;
-    padding: 8px 12px;
+    padding: 8px 40px;
     gap: 6px;
   }
   .controls {
