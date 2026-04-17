@@ -722,9 +722,9 @@ document.getElementById('btn-share').addEventListener('click', async () => {
 
 // Region presets
 const REGIONS = {
-  'europe': { center: [10, 50], zoom: 3.5 },
-  'east-asia': { center: [115, 32], zoom: 3 },
-  'south-asia': { center: [80, 23], zoom: 3.5 },
+  'europe': { center: [4.7796, 49.96], zoom: 3.5 },
+  'east-asia': { center: [121.0645, 37.3451], zoom: 3 },
+  'south-asia': { center: [78.4463, 22.9428], zoom: 3.5 },
   'north-america': { center: [-95, 40], zoom: 3 },
   'south-america': { center: [-60, -15], zoom: 3 },
   'southern-africa': { center: [25, -28], zoom: 3.5 },
