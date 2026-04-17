@@ -6,6 +6,8 @@ const MONTH_NAMES = [
 
 let months = [];
 let currentIndex = 0;
+let rangeStart = 0;
+let rangeEnd = 0;
 let playing = false;
 let playInterval = null;
 const PREBUFFER_FRAMES = 10;
@@ -127,14 +129,33 @@ async function init() {
   const timeline = document.getElementById('timeline');
   timeline.max = n - 1;
   timeline.value = 0;
-  
+
   // Reset playback speed to default on page reload to prevent browser caching stale values
   document.getElementById('speed-select').value = initialSpeed.toString();
   PLAY_SPEED_MS = initialSpeed;
 
-  // Align slider thumb (14px wide) to perfectly match the start of each buffer segment
-  timeline.style.left = '-7px';
-  timeline.style.width = `calc(100% * ${n - 1} / ${n} + 14px)`;
+  // Drive slider positioning from CSS so media queries can retune thumb sizes
+  document.documentElement.style.setProperty('--n-months', n);
+
+  rangeStart = 0;
+  rangeEnd = n - 1;
+  const rangeParam = initialParams.get('range');
+  if (rangeParam) {
+    const parts = rangeParam.split('-').map(s => parseInt(s, 10));
+    if (parts.length === 2 && Number.isFinite(parts[0]) && Number.isFinite(parts[1])) {
+      rangeStart = Math.max(0, Math.min(n - 1, parts[0]));
+      rangeEnd = Math.max(rangeStart, Math.min(n - 1, parts[1]));
+    }
+  }
+  const rangeStartEl = document.getElementById('range-start');
+  const rangeEndEl = document.getElementById('range-end');
+  [rangeStartEl, rangeEndEl].forEach(el => {
+    el.min = 0;
+    el.max = n - 1;
+  });
+  rangeStartEl.value = rangeStart;
+  rangeEndEl.value = rangeEnd;
+  updateRangeBand();
 
   // Setup buffer indicator segments
   const bufferContainer = document.getElementById('timeline-buffer');
@@ -319,8 +340,36 @@ function updateUrlState() {
 
   if (playing) params.set('play', '1');
   else params.delete('play');
-  
+
+  if (months.length > 0 && (rangeStart !== 0 || rangeEnd !== months.length - 1)) {
+    params.set('range', `${rangeStart}-${rangeEnd}`);
+  } else {
+    params.delete('range');
+  }
+
   window.history.replaceState(null, '', '?' + params.toString());
+}
+
+function updateRangeBand() {
+  if (months.length === 0) return;
+  const n = months.length;
+  const band = document.getElementById('timeline-range-band');
+  const leftPct = rangeStart / n * 100;
+  const widthPct = (rangeEnd - rangeStart + 1) / n * 100;
+  band.style.left = `${leftPct}%`;
+  band.style.width = `${widthPct}%`;
+}
+
+function prebufferIndex(p) {
+  const span = rangeEnd - rangeStart + 1;
+  if (span <= 0) return rangeStart;
+  let i = currentIndex;
+  if (i < rangeStart || i > rangeEnd) i = rangeStart;
+  return rangeStart + ((i - rangeStart + p) % span + span) % span;
+}
+
+function stepWithinRange(delta) {
+  return prebufferIndex(delta);
 }
 
 function updateMonthLabel() {
@@ -335,16 +384,18 @@ function updateBufferIndicator() {
 
     let isPrebufferTarget = false;
     for (let p = 0; p <= PREBUFFER_FRAMES; p++) {
-      if (i === (currentIndex + p) % months.length) isPrebufferTarget = true;
+      if (i === prebufferIndex(p)) isPrebufferTarget = true;
     }
 
-    let targetClass = 'timeline-buffer-segment';
+    const classes = ['timeline-buffer-segment'];
     if (isPrebufferTarget) {
       const sourceId = `no2-${i}`;
       const isLoaded = map.getSource(sourceId) && map.isSourceLoaded(sourceId);
-      if (isLoaded) targetClass = 'timeline-buffer-segment loaded';
+      if (isLoaded) classes.push('loaded');
     }
+    if (i < rangeStart || i > rangeEnd) classes.push('out-of-range');
 
+    const targetClass = classes.join(' ');
     if (seg.className !== targetClass) {
       seg.className = targetClass;
     }
@@ -358,11 +409,11 @@ function goToMonth(index) {
   months.forEach((_, i) => {
     let isPrebuffer = false;
     for (let p = 1; p <= PREBUFFER_FRAMES; p++) {
-      if (i === (currentIndex + p) % months.length) isPrebuffer = true;
+      if (i === prebufferIndex(p)) isPrebuffer = true;
     }
-    
+
     // Keep the immediately previous frame visible but transparent for 1 step to prevent flashing
-    let isPrevious = i === (currentIndex - 1 + months.length) % months.length;
+    let isPrevious = i === prebufferIndex(-1);
     
     let targetState = 0; // 0 = none, 1 = prebuffer, 2 = visible
     if (i === currentIndex) {
@@ -396,8 +447,10 @@ function goToMonth(index) {
 let waitId = 0;
 
 function advanceFrame() {
-  const nextIndex = (currentIndex + 1) % months.length;
-  
+  const nextIndex = (currentIndex < rangeStart || currentIndex >= rangeEnd)
+    ? rangeStart
+    : currentIndex + 1;
+
   if (!map.isSourceLoaded(`no2-${nextIndex}`)) {
     stopInterval();
     document.getElementById('month-label').textContent = 'Loading\u2026';
@@ -469,9 +522,31 @@ function manualSeek(index) {
   goToMonth(index);
 }
 
-document.getElementById('btn-prev').addEventListener('click', () => manualSeek(currentIndex - 1));
-document.getElementById('btn-next').addEventListener('click', () => manualSeek(currentIndex + 1));
+document.getElementById('btn-prev').addEventListener('click', () => manualSeek(stepWithinRange(-1)));
+document.getElementById('btn-next').addEventListener('click', () => manualSeek(stepWithinRange(1)));
 document.getElementById('btn-play').addEventListener('click', togglePlay);
+
+document.getElementById('range-start').addEventListener('input', (e) => {
+  let v = parseInt(e.target.value, 10);
+  if (v > rangeEnd) v = rangeEnd;
+  rangeStart = v;
+  e.target.value = v;
+  updateRangeBand();
+  updateBufferIndicator();
+  if (currentIndex < rangeStart) manualSeek(rangeStart);
+  else updateUrlState();
+});
+
+document.getElementById('range-end').addEventListener('input', (e) => {
+  let v = parseInt(e.target.value, 10);
+  if (v < rangeStart) v = rangeStart;
+  rangeEnd = v;
+  e.target.value = v;
+  updateRangeBand();
+  updateBufferIndicator();
+  if (currentIndex > rangeEnd) manualSeek(rangeEnd);
+  else updateUrlState();
+});
 
 document.getElementById('speed-select').addEventListener('change', (e) => {
   PLAY_SPEED_MS = parseInt(e.target.value, 10);
@@ -557,10 +632,10 @@ document.addEventListener('keydown', (e) => {
       togglePlay();
       break;
     case 'ArrowLeft':
-      goToMonth(currentIndex - 1);
+      goToMonth(stepWithinRange(-1));
       break;
     case 'ArrowRight':
-      goToMonth(currentIndex + 1);
+      goToMonth(stepWithinRange(1));
       break;
   }
 });
