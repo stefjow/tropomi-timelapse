@@ -104,12 +104,15 @@
         </svg>
       </button>
       <select id="speed-select" class="speed-select" aria-label="Playback speed">
-        <option value="2000">0.5x</option>
-        <option value="1000" selected>1.0x</option>
-        <option value="500">2.0x</option>
-        <option value="250">4.0x</option>
+        <option value="1500">0.5x</option>
+        <option value="750" selected>1.0x</option>
+        <option value="400">2.0x</option>
+        <option value="200">4.0x</option>
       </select>
-      <span id="month-label" class="month-label">Loading...</span>
+      <span class="month-picker">
+        <span id="month-label" class="month-label">Loading...</span>
+        <select id="month-select" class="month-select" aria-label="Jump to month"></select>
+      </span>
     </div>
     <div class="timeline-wrap">
       <div id="timeline-buffer" class="timeline-buffer"></div>

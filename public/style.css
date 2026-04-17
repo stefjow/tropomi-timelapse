@@ -311,6 +311,10 @@ h1 sub {
   height: 36px;
 }
 
+.play-btn.will-snap {
+  color: #8ab4f8;
+}
+
 .speed-select {
   background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(12px);
@@ -336,11 +340,58 @@ h1 sub {
   color: #e0e0e0;
 }
 
-.month-label {
-  font-size: 14px;
-  color: #e0e0e0;
+.month-picker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
   margin-left: 8px;
-  min-width: 140px;
+  min-width: 115px;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: #aaa;
+  transition: all 0.15s;
+}
+
+.month-picker:hover {
+  background: rgba(0, 0, 0, 0.95);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
+
+.month-label {
+  font-size: inherit;
+  color: inherit;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.month-select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  font-size: inherit;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.month-select option {
+  background: #1a1a1a;
+  color: #e0e0e0;
 }
 
 /* --- Timeline slider --- */
@@ -529,14 +580,19 @@ h1 sub {
   .sidebar:not(.open) {
     transform: translateX(-240px);
   }
-  .month-label {
-    font-size: 12px;
+  .month-picker {
     min-width: 0;
     margin-left: 4px;
     flex: 1;
+    overflow: hidden;
+  }
+  .month-label {
+    font-size: 12px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    display: block;
+    width: 100%;
   }
   #bottom-bar {
     flex-direction: column;

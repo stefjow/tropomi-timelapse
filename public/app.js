@@ -10,8 +10,13 @@ let rangeStart = 0;
 let rangeEnd = 0;
 let playing = false;
 let playInterval = null;
-const PREBUFFER_FRAMES = 10;
-let PLAY_SPEED_MS = 1000;
+let PREBUFFER_FRAMES = 10;
+let PLAY_SPEED_MS = 750;
+
+function computePrebufferFrames() {
+  // Target ~3s of lookahead so prefetch scales with playback speed
+  return Math.max(5, Math.ceil(3000 / PLAY_SPEED_MS));
+}
 let layerStates = [];
 
 // --- PMTiles protocol ---
@@ -33,7 +38,7 @@ const initialPitch = initialParams.has('p') ? parseFloat(initialParams.get('p'))
 const initialBearing = initialParams.has('b') ? parseFloat(initialParams.get('b')) : 0;
 const initialProj = initialParams.get('proj') === 'globe' ? 'globe' : 'mercator';
 const initialBase = initialParams.get('base') === 'satellite' ? 'satellite' : 'dark';
-const initialSpeed = initialParams.has('speed') ? parseInt(initialParams.get('speed'), 10) : 1000;
+const initialSpeed = initialParams.has('speed') ? parseInt(initialParams.get('speed'), 10) : 750;
 const initialPlay = initialParams.get('play') === '1';
 
 if (initialParams.has('cities')) {
@@ -133,6 +138,7 @@ async function init() {
   // Reset playback speed to default on page reload to prevent browser caching stale values
   document.getElementById('speed-select').value = initialSpeed.toString();
   PLAY_SPEED_MS = initialSpeed;
+  PREBUFFER_FRAMES = computePrebufferFrames();
 
   // Drive slider positioning from CSS so media queries can retune thumb sizes
   document.documentElement.style.setProperty('--n-months', n);
@@ -165,6 +171,16 @@ async function init() {
     seg.className = 'timeline-buffer-segment';
     seg.id = `buffer-segment-${i}`;
     bufferContainer.appendChild(seg);
+  });
+
+  // Populate month jump selector
+  const monthSelect = document.getElementById('month-select');
+  monthSelect.innerHTML = '';
+  months.forEach((m, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = formatMonth(m);
+    monthSelect.appendChild(opt);
   });
 
   map.on('load', () => {
@@ -335,7 +351,7 @@ function updateUrlState() {
   else params.delete('cities');
 
   const speed = document.getElementById('speed-select').value;
-  if (speed !== '1000') params.set('speed', speed);
+  if (speed !== '750') params.set('speed', speed);
   else params.delete('speed');
 
   if (playing) params.set('play', '1');
@@ -358,6 +374,17 @@ function updateRangeBand() {
   const widthPct = (rangeEnd - rangeStart + 1) / n * 100;
   band.style.left = `${leftPct}%`;
   band.style.width = `${widthPct}%`;
+}
+
+function updatePlayButtonState() {
+  const btn = document.getElementById('btn-play');
+  const outside = currentIndex < rangeStart || currentIndex > rangeEnd;
+  btn.classList.toggle('will-snap', outside);
+  if (outside && months.length > 0) {
+    btn.title = `Play (starts from ${formatMonth(months[rangeStart])})`;
+  } else {
+    btn.title = 'Play / pause';
+  }
 }
 
 function prebufferIndex(p) {
@@ -437,8 +464,11 @@ function goToMonth(index) {
   });
 
   document.getElementById('timeline').value = currentIndex;
+  const monthSelect = document.getElementById('month-select');
+  if (monthSelect.options.length) monthSelect.value = currentIndex;
   updateMonthLabel();
   updateBufferIndicator();
+  updatePlayButtonState();
   updateUrlState();
 }
 
@@ -446,16 +476,30 @@ function goToMonth(index) {
 
 let waitId = 0;
 
+function whenSourceLoaded(sourceId, callback) {
+  if (map.isSourceLoaded(sourceId)) {
+    callback();
+    return;
+  }
+  const handler = (e) => {
+    if (e.sourceId !== sourceId || !e.isSourceLoaded) return;
+    map.off('sourcedata', handler);
+    callback();
+  };
+  map.on('sourcedata', handler);
+}
+
 function advanceFrame() {
   const nextIndex = (currentIndex < rangeStart || currentIndex >= rangeEnd)
     ? rangeStart
     : currentIndex + 1;
 
-  if (!map.isSourceLoaded(`no2-${nextIndex}`)) {
+  const sourceId = `no2-${nextIndex}`;
+  if (!map.isSourceLoaded(sourceId)) {
     stopInterval();
     document.getElementById('month-label').textContent = 'Loading\u2026';
     const currentWaitId = ++waitId;
-    map.once('idle', () => {
+    whenSourceLoaded(sourceId, () => {
       if (playing && currentWaitId === waitId) {
         goToMonth(nextIndex);
         startInterval();
@@ -463,7 +507,7 @@ function advanceFrame() {
     });
     return;
   }
-  
+
   goToMonth(nextIndex);
 }
 
@@ -496,10 +540,11 @@ function togglePlay() {
   document.getElementById('icon-pause').style.display = '';
   updateUrlState();
 
-  if (!map.areTilesLoaded()) {
+  const sourceId = `no2-${currentIndex}`;
+  if (!map.isSourceLoaded(sourceId)) {
     document.getElementById('month-label').textContent = 'Loading\u2026';
     const currentWaitId = ++waitId;
-    map.once('idle', () => {
+    whenSourceLoaded(sourceId, () => {
       if (playing && currentWaitId === waitId) {
         updateMonthLabel();
         startInterval();
@@ -533,8 +578,12 @@ document.getElementById('range-start').addEventListener('input', (e) => {
   e.target.value = v;
   updateRangeBand();
   updateBufferIndicator();
-  if (currentIndex < rangeStart) manualSeek(rangeStart);
-  else updateUrlState();
+  if (currentIndex < rangeStart) {
+    manualSeek(rangeStart);
+  } else {
+    updatePlayButtonState();
+    updateUrlState();
+  }
 });
 
 document.getElementById('range-end').addEventListener('input', (e) => {
@@ -544,12 +593,17 @@ document.getElementById('range-end').addEventListener('input', (e) => {
   e.target.value = v;
   updateRangeBand();
   updateBufferIndicator();
-  if (currentIndex > rangeEnd) manualSeek(rangeEnd);
-  else updateUrlState();
+  if (currentIndex > rangeEnd) {
+    manualSeek(rangeEnd);
+  } else {
+    updatePlayButtonState();
+    updateUrlState();
+  }
 });
 
 document.getElementById('speed-select').addEventListener('change', (e) => {
   PLAY_SPEED_MS = parseInt(e.target.value, 10);
+  PREBUFFER_FRAMES = computePrebufferFrames();
   if (playing) {
     waitId++;
     stopInterval();
@@ -559,6 +613,10 @@ document.getElementById('speed-select').addEventListener('change', (e) => {
 });
 
 document.getElementById('timeline').addEventListener('input', (e) => {
+  manualSeek(parseInt(e.target.value, 10));
+});
+
+document.getElementById('month-select').addEventListener('change', (e) => {
   manualSeek(parseInt(e.target.value, 10));
 });
 
