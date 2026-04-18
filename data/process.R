@@ -10,7 +10,23 @@ tmp_dir    <- file.path(output_dir, "tmp")
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 dir.create(tmp_dir, showWarnings = FALSE, recursive = TRUE)
 
+# Cap terra memory budget and point its spill directory at disk (not tmpfs),
+# so large stack operations don't balloon RAM use. Adjust memfrac if your
+# machine has plenty of RAM free.
+terraOptions(memfrac = 0.3, tempdir = tmp_dir)
+
+# Cap GDAL's internal tile cache (default auto-sizes to a big % of RAM).
+# 512 MB is plenty for tile generation.
+Sys.setenv(GDAL_CACHEMAX = "512")
+
+# Best-effort cleanup of this session's tempdir on exit. R does this on normal
+# exit, but be explicit so an interrupted/resumed session still clears spill.
+on.exit(unlink(tempdir(), recursive = TRUE, force = TRUE), add = TRUE)
+
 # Max zoom level for tile pyramid (0 = whole world in 1 tile, 3 = testing)
+# Source S5P L3 data is ~0.05° (~5 km) per pixel; that matches zoom ~5.
+# Going higher just interpolates fake detail and bloats file sizes — MapLibre
+# can upsample client-side just fine beyond max zoom.
 max_zoom <- 0
 
 # Set to TRUE to force recalculation of all months (ignores existing PMTiles)
@@ -21,22 +37,75 @@ force_recalc <- TRUE
 scale_min <- 0
 scale_max <- 180
 
+# Set TRUE to inspect data distribution and print a recommended scale_max before
+# tile generation. Leave FALSE for normal runs (skips the extra I/O pass).
+inspect_scale <- FALSE
+
+# Old palette (libmap-inspired, non-monotonic lightness; kept for reference):
+# no2_colors <- c(
+#   "#e85555",  # lightest red
+#   "#d94040",  # light red
+#   "#c43030",  # light red
+#   "#a52020",  # red
+#   "#8b1a1a",  # dark red
+#   "#6b1010",  # deeper red
+#   "#4a0c0c",  # very dark red
+#   "#691814",  # dark maroon
+#   "#87241d",  # dark brick red
+#   "#a63025",  # brick red
+#   "#c43c2d",  # red-orange
+#   "#e06830",  # orange
+#   "#f0a030",  # golden orange
+#   "#f8d040",  # yellow-orange
+#   "#fff06a",  # bright yellow
+#   "#c8f0ff",  # light ice blue
+#   "#7ecbff",  # blue
+#   "#3a8fd4",  # medium blue
+#   "#1a5a9e",  # dark blue
+#   "#0e3a6e",  # deep blue
+#   "#061a3a",  # very dark blue
+#   "#000000"   # black (extreme peaks)
+# )
+
+# Monotonic warm ramp: dark red -> bright yellow (no double-red visit,
+# no dark-blue extreme). Low values fade into the dark basemap; hotspots pop.
 no2_colors <- c(
-  "#e85555",  # lightest red
-  "#d94040",  # light red
-  "#c43030",  # light red
+  "#3a0808",  # very dark red (start)
+  #"#440a0a",  # very dark red
+  "#4e0b0b",  # very dark red
+  #"#570d0d",  # dark red
+  "#610e0e",  # dark red
+  #"#6b1010",  # dark red
+  "#771313",  # deep red
+  "#821616",  # deep red
+  "#8e1a1a",  # red
+  "#991d1d",  # red
   "#a52020",  # red
-  "#8b1a1a",  # dark red
-  "#6b1010",  # deeper red
-  "#4a0c0c",  # very dark red
-  "#691814",  # dark maroon
-  "#87241d",  # dark brick red
-  "#a63025",  # brick red
-  "#c43c2d",  # red-orange
+  "#b22828",  # red
+  "#bf3030",  # red
+  "#cc3838",  # bright red
+  "#d94040",  # bright red
+  "#db4d3b",  # red-orange
+  "#de5b35",  # red-orange
   "#e06830",  # orange
+  "#e47630",  # orange
+  "#e88430",  # orange
+  "#ec9230",  # orange
   "#f0a030",  # golden orange
-  "#f8d040",  # yellow-orange
-  "#fff06a",  # bright yellow
+  "#f2a836",  # golden orange
+  "#f3b03c",  # golden orange
+  "#f5b841",  # yellow-orange
+  "#f6c047",  # yellow-orange
+  "#f8c84d",  # yellow-orange
+  "#f9d053",  # yellow
+  "#fbd859",  # yellow
+  "#fce05e",  # yellow
+  "#fee864",  # yellow
+  "#fff06a",  # bright yellow (end of warm ramp)
+  "#f4f088",  # pale yellow
+  "#e9f0a6",  # yellow-green
+  "#def0c4",  # pale mint
+  "#d3f0e1",  # pale cyan
   "#c8f0ff",  # light ice blue
   "#7ecbff",  # blue
   "#3a8fd4",  # medium blue
@@ -46,14 +115,61 @@ no2_colors <- c(
   "#000000"   # black (extreme peaks)
 )
 
+no2_colors <- c(
+  "#3a0808",  # very dark red (start)
+  "#4e0b0b",  # very dark red
+  "#771313",  # deep red
+  "#821616",  # deep red
+  "#991d1d",  # red
+  "#a52020",  # red
+  "#d94040",  # bright red
+  "#db4d3b",  # red-orange
+  "#e06830",  # orange
+  "#e47630",  # orange
+  "#f2a836",  # golden orange
+  "#f5b841",  # yellow-orange
+  "#f6c047",  # yellow-orange
+  "#f9d053",  # yellow
+  "#fbd859",  # yellow
+  "#fce05e",  # yellow
+  "#fee864",  # yellow
+  "#fff06a",  # bright yellow (end of warm ramp)
+  "#f4f088",  # pale yellow
+  "#e9f0a6",  # yellow-green
+  "#def0c4",  # pale mint
+  "#c8f0ff",  # light ice blue
+  "#7ecbff",  # blue
+  "#3a8fd4",  # medium blue
+  "#1a5a9e",  # dark blue
+  "#17508c",  # darkening blue
+  "#14467b",  # darker blue
+  "#113c69",  # deep blue
+  "#0e3258",  # very deep blue
+  "#0c2846",  # very dark blue
+  "#091e35",  # near-black blue
+  "#061423",  # almost black
+  "#030a12",  # barely blue
+  "#000000"   # black (extreme peaks)
+)
+
 # Write GDAL color relief file (maps NO2 values directly to RGBA)
 color_rgb <- col2rgb(no2_colors)
 breaks <- seq(scale_min, scale_max, length.out = length(no2_colors))
+
+# Alpha ramp: fade from transparent to fully opaque across the bottom of the scale
+# so clean/low-NO2 areas show the basemap through. fade_in_steps counts how many
+# color slots span the 0->opaque transition. Set to 1 to disable (all opaque).
+fade_in_steps <- 5
+alpha_values <- pmin(255L, as.integer(round(
+  (seq_along(no2_colors) - 1) / max(1, fade_in_steps - 1) * 255
+)))
+
 color_file <- file.path(tmp_dir, "no2_colors.txt")
 writeLines(c(
   "nv 0 0 0 0",
-  sprintf("%.2f %d %d %d 255", breaks, color_rgb[1, ], color_rgb[2, ], color_rgb[3, ]),
-  # Clamp everything above scale_max to the last color
+  sprintf("%.2f %d %d %d %d", breaks,
+          color_rgb[1, ], color_rgb[2, ], color_rgb[3, ], alpha_values),
+  # Clamp everything above scale_max to the last color, fully opaque
   sprintf("%.2f %d %d %d 255", 9999, color_rgb[1, length(no2_colors)],
           color_rgb[2, length(no2_colors)], color_rgb[3, length(no2_colors)])
 ), color_file)
@@ -72,6 +188,18 @@ month_labels <- paste0(substr(dates, 1, 4), "-", substr(dates, 5, 6))
 
 cat("Found", length(tif_files), "monthly files:\n")
 cat(paste(" ", month_labels, "->", basename(tif_files)), sep = "\n")
+
+if (inspect_scale) {
+  cat("\nInspecting data distribution (this may take a minute)...\n")
+  q99 <- sapply(tif_files, function(f) {
+    global(rast(f), fun = quantile, probs = 0.99, na.rm = TRUE)[[1]]
+  })
+  cat(sprintf("Per-file 99th percentile - median: %.1f, max: %.1f\n",
+              median(q99, na.rm = TRUE), max(q99, na.rm = TRUE)))
+  cat(sprintf("Suggested scale_max: ~%d (currently %d)\n",
+              ceiling(median(q99, na.rm = TRUE) / 10) * 10, scale_max))
+  cat("Update `scale_max` above and re-run to apply.\n\n")
+}
 
 # Parse dates for rolling mean lookups
 file_dates <- as.Date(dates, format = "%Y%m%d")
@@ -134,9 +262,11 @@ for (i in seq_along(tif_files)) {
   system(gdaldem_cmd)
 
   # Convert to MBTiles at max zoom
+  # ZOOM_LEVEL_STRATEGY=LOWER avoids upsampling the source; LANCZOS is the best
+  # resampling filter for color imagery (sharper than AVERAGE at zoom transitions)
   mbt_path <- file.path(tmp_dir, paste0("no2_", month_label, ".mbtiles"))
   gdal_cmd <- sprintf(
-    'gdal_translate -of MBTiles -co "TILE_FORMAT=PNG" -co "RESAMPLING=AVERAGE" -co "ZOOM_LEVEL_STRATEGY=UPPER" "%s" "%s"',
+    'gdal_translate -of MBTiles -co "TILE_FORMAT=WEBP" -co "QUALITY=100" -co "RESAMPLING=AVERAGE" -co "ZOOM_LEVEL_STRATEGY=UPPER" "%s" "%s"',
     tif_path, mbt_path
   )
   cat("  Creating MBTiles at zoom", max_zoom, "...\n")
@@ -162,6 +292,12 @@ for (i in seq_along(tif_files)) {
   unlink(single_path)
   unlink(tif_path)
   unlink(mbt_path)
+  # Clear any terra spill files left over from this iteration. tmpFiles() throws
+  # if there are no orphans to remove, so swallow that — it just means nothing to do.
+  tryCatch(
+    terra::tmpFiles(current = FALSE, orphan = TRUE, remove = TRUE),
+    error = function(e) invisible(NULL)
+  )
   gc(verbose = FALSE)
 }
 

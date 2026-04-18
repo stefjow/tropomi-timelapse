@@ -661,37 +661,32 @@ document.getElementById('month-select').addEventListener('change', (e) => {
   manualSeek(parseInt(e.target.value, 10));
 });
 
-// Projection toggle
-document.getElementById('btn-flat').addEventListener('click', () => {
-  map.setProjection({ type: 'mercator' });
-  document.getElementById('btn-flat').classList.add('active');
-  document.getElementById('btn-globe').classList.remove('active');
+// Projection toggle — clicking either button flips state (iOS-style)
+function toggleProjection() {
+  const globeBtn = document.getElementById('btn-globe');
+  const flatBtn = document.getElementById('btn-flat');
+  const useGlobe = !globeBtn.classList.contains('active');
+  map.setProjection({ type: useGlobe ? 'globe' : 'mercator' });
+  globeBtn.classList.toggle('active', useGlobe);
+  flatBtn.classList.toggle('active', !useGlobe);
   updateUrlState();
-});
+}
+document.getElementById('btn-flat').addEventListener('click', toggleProjection);
+document.getElementById('btn-globe').addEventListener('click', toggleProjection);
 
-document.getElementById('btn-globe').addEventListener('click', () => {
-  map.setProjection({ type: 'globe' });
-  document.getElementById('btn-globe').classList.add('active');
-  document.getElementById('btn-flat').classList.remove('active');
+// Base map toggle — clicking either button flips state (iOS-style)
+function toggleBaseMap() {
+  const satBtn = document.getElementById('btn-satellite');
+  const darkBtn = document.getElementById('btn-dark');
+  const useSat = !satBtn.classList.contains('active');
+  map.setLayoutProperty('carto-dark', 'visibility', useSat ? 'none' : 'visible');
+  map.setLayoutProperty('esri-satellite', 'visibility', useSat ? 'visible' : 'none');
+  satBtn.classList.toggle('active', useSat);
+  darkBtn.classList.toggle('active', !useSat);
   updateUrlState();
-});
-
-// Base map toggle
-document.getElementById('btn-dark').addEventListener('click', () => {
-  map.setLayoutProperty('carto-dark', 'visibility', 'visible');
-  map.setLayoutProperty('esri-satellite', 'visibility', 'none');
-  document.getElementById('btn-dark').classList.add('active');
-  document.getElementById('btn-satellite').classList.remove('active');
-  updateUrlState();
-});
-
-document.getElementById('btn-satellite').addEventListener('click', () => {
-  map.setLayoutProperty('carto-dark', 'visibility', 'none');
-  map.setLayoutProperty('esri-satellite', 'visibility', 'visible');
-  document.getElementById('btn-satellite').classList.add('active');
-  document.getElementById('btn-dark').classList.remove('active');
-  updateUrlState();
-});
+}
+document.getElementById('btn-dark').addEventListener('click', toggleBaseMap);
+document.getElementById('btn-satellite').addEventListener('click', toggleBaseMap);
 
 // Cities toggle
 document.getElementById('toggle-cities').addEventListener('click', (e) => {

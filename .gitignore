@@ -1,6 +1,6 @@
 # Raw satellite data (large TIFs, download with data/download.R)
 data/raw/
-
+archive/
 
 # Generated tiles (rebuild with data/process.R)
 public/tiles/monthly/
