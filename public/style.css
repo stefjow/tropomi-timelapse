@@ -141,6 +141,10 @@ h1 sub {
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
+.button-group.subtoggle {
+  margin-top: 6px;
+}
+
 .btn {
   flex: 1;
   padding: 7px 0;
@@ -198,12 +202,12 @@ h1 sub {
   height: 12px;
   border-radius: 3px;
   /* Mirrors no2_colors in data/process.R (scale 0-170 µmol/m²).
-     First 5 stops use alpha fade-in to match the transparency baked into the tiles. */
+     Leading dark reds are skipped — in the tiles they render with low alpha
+     and disappear into the basemap, so showing them as near-black in the
+     legend misrepresents what actually appears on the map. */
   background: linear-gradient(to right,
-    rgba(58, 8, 8, 0),
-    rgba(78, 11, 11, 0.25),
-    rgba(119, 19, 19, 0.5),
-    rgba(130, 22, 22, 0.75),
+    rgba(130, 22, 22, 0),
+    rgba(130, 22, 22, 0.5),
     #991d1d,
     #a52020,
     #d94040,

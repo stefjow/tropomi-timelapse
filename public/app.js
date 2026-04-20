@@ -38,8 +38,23 @@ const initialPitch = initialParams.has('p') ? parseFloat(initialParams.get('p'))
 const initialBearing = initialParams.has('b') ? parseFloat(initialParams.get('b')) : 0;
 const initialProj = initialParams.get('proj') === 'globe' ? 'globe' : 'mercator';
 const initialBase = initialParams.get('base') === 'satellite' ? 'satellite' : 'dark';
+const initialExplorer = initialParams.get('explorer') !== '0'; // on by default
 const initialSpeed = initialParams.has('speed') ? parseInt(initialParams.get('speed'), 10) : 750;
 const initialPlay = initialParams.get('play') === '1';
+
+// Explorer mode: when the user is on the dark basemap, auto-swap to satellite
+// once zoom crosses this threshold. Zooming back out restores dark.
+const EXPLORER_ZOOM_THRESHOLD = 10;
+let userSelectedBase = initialBase;
+let explorerMode = initialExplorer;
+
+function effectiveBaseFor(zoom) {
+  if (userSelectedBase === 'satellite') return 'satellite';
+  if (!explorerMode) return 'dark';
+  return zoom >= EXPLORER_ZOOM_THRESHOLD ? 'satellite' : 'dark';
+}
+
+let currentRenderedBase = effectiveBaseFor(initialZoom);
 
 if (initialParams.get('cities') === '1') {
   const btn = document.getElementById('toggle-cities');
@@ -53,6 +68,11 @@ if (initialProj === 'globe') {
 if (initialBase === 'satellite') {
   document.getElementById('btn-satellite').classList.add('active');
   document.getElementById('btn-dark').classList.remove('active');
+}
+if (!initialExplorer) {
+  const btn = document.getElementById('toggle-explorer');
+  btn.classList.remove('active');
+  btn.setAttribute('aria-pressed', 'false');
 }
 
 // --- Map ---
@@ -80,12 +100,12 @@ const map = new maplibregl.Map({
       id: 'carto-dark',
       type: 'raster',
       source: 'carto-dark',
-      layout: { 'visibility': initialBase === 'dark' ? 'visible' : 'none' }
+      layout: { 'visibility': currentRenderedBase === 'dark' ? 'visible' : 'none' }
     }, {
       id: 'esri-satellite',
       type: 'raster',
       source: 'esri-satellite',
-      layout: { 'visibility': initialBase === 'satellite' ? 'visible' : 'none' }
+      layout: { 'visibility': currentRenderedBase === 'satellite' ? 'visible' : 'none' }
     }]
   },
   center: [initialLng, initialLat],
@@ -364,6 +384,9 @@ function updateUrlState() {
   const isSatellite = document.getElementById('btn-satellite').classList.contains('active');
   if (isSatellite) params.set('base', 'satellite');
   else params.delete('base');
+
+  if (!explorerMode) params.set('explorer', '0');
+  else params.delete('explorer');
 
   const showCities = document.getElementById('toggle-cities').classList.contains('active');
   if (showCities) params.set('cities', '1');
@@ -674,19 +697,39 @@ function toggleProjection() {
 document.getElementById('btn-flat').addEventListener('click', toggleProjection);
 document.getElementById('btn-globe').addEventListener('click', toggleProjection);
 
-// Base map toggle — clicking either button flips state (iOS-style)
+// Base map toggle — clicking either button flips the user's selection.
+// The actual rendered basemap goes through applyEffectiveBase() so Explorer
+// Mode can auto-swap to satellite at high zoom on the dark map.
+function applyEffectiveBase() {
+  const eff = effectiveBaseFor(map.getZoom());
+  if (eff === currentRenderedBase) return;
+  map.setLayoutProperty('carto-dark', 'visibility', eff === 'dark' ? 'visible' : 'none');
+  map.setLayoutProperty('esri-satellite', 'visibility', eff === 'satellite' ? 'visible' : 'none');
+  currentRenderedBase = eff;
+}
+
 function toggleBaseMap() {
   const satBtn = document.getElementById('btn-satellite');
   const darkBtn = document.getElementById('btn-dark');
   const useSat = !satBtn.classList.contains('active');
-  map.setLayoutProperty('carto-dark', 'visibility', useSat ? 'none' : 'visible');
-  map.setLayoutProperty('esri-satellite', 'visibility', useSat ? 'visible' : 'none');
+  userSelectedBase = useSat ? 'satellite' : 'dark';
   satBtn.classList.toggle('active', useSat);
   darkBtn.classList.toggle('active', !useSat);
+  applyEffectiveBase();
   updateUrlState();
 }
 document.getElementById('btn-dark').addEventListener('click', toggleBaseMap);
 document.getElementById('btn-satellite').addEventListener('click', toggleBaseMap);
+
+document.getElementById('toggle-explorer').addEventListener('click', (e) => {
+  const btn = e.currentTarget;
+  explorerMode = btn.classList.toggle('active');
+  btn.setAttribute('aria-pressed', explorerMode ? 'true' : 'false');
+  applyEffectiveBase();
+  updateUrlState();
+});
+
+map.on('zoom', applyEffectiveBase);
 
 // Cities toggle
 document.getElementById('toggle-cities').addEventListener('click', (e) => {
