@@ -212,11 +212,23 @@ writeLines(c(
 ), color_file)
 
 # --- Find monthly files ---
-tif_files <- sort(list.files(input_dir, pattern = "\\.tif$", full.names = TRUE))
+tif_files <- sort(list.files(input_dir, pattern = "^no2_monthly_.*\\.tif$", full.names = TRUE))
 tif_files <- tif_files[!grepl("\\.aux\\.xml", tif_files)]
 
 if (length(tif_files) == 0) {
   stop("No .tif files found in ", input_dir, ". Run download.R first.")
+}
+
+# Parallel list of per-month weight files. Pair by filename date so an order
+# mismatch or missing weight file is caught early rather than silently
+# producing a wrong weighted mean.
+weight_files <- file.path(dirname(tif_files),
+                          sub("^no2_monthly_", "no2weight_", basename(tif_files)))
+missing_w <- !file.exists(weight_files)
+if (any(missing_w)) {
+  stop("Missing NO2_WEIGHT files for: ",
+       paste(basename(tif_files[missing_w]), collapse = ", "),
+       ". Re-run download.R.")
 }
 
 # Extract YYYY-MM from filenames (expects date like 20260101 in filename)
@@ -269,14 +281,27 @@ for (i in seq_along(tif_files)) {
       cat("  Skipping: only", length(in_window), "of 12 months available\n")
       next
     }
-    cat("  Rolling mean over", length(in_window), "months:",
+    cat("  Weighted rolling mean over", length(in_window), "months:",
         paste(month_labels[in_window], collapse = ", "), "\n")
-    stack <- rast(lapply(tif_files[in_window], rast))
-    r <- mean(stack, na.rm = TRUE)
-    rm(stack)
+    # Weighted mean: sum(no2 * w) / sum(w), using the L3 product's own
+    # NO2_WEIGHT band. Pixels with little/no L2 coverage (e.g. polar night)
+    # contribute near-zero weight and stop dominating the mean.
+    no2_stack <- rast(lapply(tif_files[in_window], rast))
+    w_stack   <- rast(lapply(weight_files[in_window], rast))
+    # Zero out weight where NO2 is NA so num and den stay consistent.
+    w_stack <- mask(w_stack, no2_stack, updatevalue = 0)
+    num <- sum(no2_stack * w_stack, na.rm = TRUE)
+    den <- sum(w_stack, na.rm = TRUE)
+    r <- ifel(den > 0, num / den, NA)
+    rm(no2_stack, w_stack, num, den)
     gc(verbose = FALSE)
   } else {
+    # Monthly mode: drop pixels with near-zero gridding weight to suppress
+    # spurious winter retrievals at high latitudes.
     r <- rast(tif_files[i])
+    w <- rast(weight_files[i])
+    r <- mask(r, w, maskvalues = c(NA, 0))
+    rm(w)
   }
 
   # Crop latitude to ~85° (Web Mercator limit)

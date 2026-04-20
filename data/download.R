@@ -21,6 +21,19 @@ download_terrascope(
   file_prefix = "no2_monthly"
 )
 
+# Companion weight band: per-pixel L2->L3 binning weights. Needed to do a
+# weight-aware aggregation in process.R so low-coverage pixels (e.g. polar
+# night at high northern latitudes in winter) stop polluting the mean.
+download_terrascope(
+  bbox       = bbox,
+  start_date = start_date,
+  end_date   = end_date,
+  output_dir = output_dir,
+  collection = collection,
+  asset_key  = "NO2_WEIGHT",
+  file_prefix = "no2weight"
+)
+
 # --- Preview PNGs for visual QC ---
 # One PNG per raw GeoTIFF, saved next to the data. Skips files that already
 # have a preview so repeated runs are cheap. Auto-scales color range per file
@@ -28,7 +41,7 @@ download_terrascope(
 preview_dir <- file.path(output_dir, "previews")
 dir.create(preview_dir, showWarnings = FALSE, recursive = TRUE)
 
-tif_files <- list.files(output_dir, pattern = "\\.tif$", full.names = TRUE)
+tif_files <- list.files(output_dir, pattern = "^no2_monthly_.*\\.tif$", full.names = TRUE)
 tif_files <- tif_files[!grepl("\\.aux\\.xml", tif_files)]
 
 cat("\nGenerating preview PNGs...\n")
