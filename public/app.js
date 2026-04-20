@@ -66,13 +66,15 @@ if (initialProj === 'globe') {
   document.getElementById('btn-flat').classList.remove('active');
 }
 if (initialBase === 'satellite') {
-  document.getElementById('btn-satellite').classList.add('active');
-  document.getElementById('btn-dark').classList.remove('active');
+  document.getElementById('btn-satellite')?.classList.add('active');
+  document.getElementById('btn-dark')?.classList.remove('active');
 }
 if (!initialExplorer) {
   const btn = document.getElementById('toggle-explorer');
-  btn.classList.remove('active');
-  btn.setAttribute('aria-pressed', 'false');
+  if (btn) {
+    btn.classList.remove('active');
+    btn.setAttribute('aria-pressed', 'false');
+  }
 }
 
 // --- Map ---
@@ -381,7 +383,7 @@ function updateUrlState() {
   if (isGlobe) params.set('proj', 'globe');
   else params.delete('proj');
 
-  const isSatellite = document.getElementById('btn-satellite').classList.contains('active');
+  const isSatellite = userSelectedBase === 'satellite';
   if (isSatellite) params.set('base', 'satellite');
   else params.delete('base');
 
@@ -718,10 +720,10 @@ function toggleBaseMap() {
   applyEffectiveBase();
   updateUrlState();
 }
-document.getElementById('btn-dark').addEventListener('click', toggleBaseMap);
-document.getElementById('btn-satellite').addEventListener('click', toggleBaseMap);
+document.getElementById('btn-dark')?.addEventListener('click', toggleBaseMap);
+document.getElementById('btn-satellite')?.addEventListener('click', toggleBaseMap);
 
-document.getElementById('toggle-explorer').addEventListener('click', (e) => {
+document.getElementById('toggle-explorer')?.addEventListener('click', (e) => {
   const btn = e.currentTarget;
   explorerMode = btn.classList.toggle('active');
   btn.setAttribute('aria-pressed', explorerMode ? 'true' : 'false');
