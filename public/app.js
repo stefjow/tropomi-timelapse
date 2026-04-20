@@ -245,10 +245,10 @@ async function init() {
         'text-field': ['get', 'name'],
         'text-size': [
           'interpolate', ['linear'], ['zoom'],
-          2, ['case', ['>=', ['get', 'population'], 5000000], 22, 0],
-          4, ['case', ['>=', ['get', 'population'], 1000000], 22, 0],
-          6, ['case', ['>=', ['get', 'population'], 500000], 20, 0],
-          8, 10
+          2, ['case', ['>=', ['get', 'population'], 5000000], 16, 0],
+          4, ['case', ['>=', ['get', 'population'], 1000000], 16, 0],
+          6, ['case', ['>=', ['get', 'population'], 500000], 12, 0],
+          8, 12
         ],
         'text-anchor': 'left',
         'text-offset': [0.8, 0],

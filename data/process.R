@@ -30,12 +30,12 @@ on.exit(unlink(tempdir(), recursive = TRUE, force = TRUE), add = TRUE)
 max_zoom <- 0
 
 # Set to TRUE to force recalculation of all months (ignores existing PMTiles)
-force_recalc <- TRUE
+force_recalc <- FALSE
 
 # Color scale: hot-body with blue peaks (inspired by libmap.org NO2 layer)
 # Tuned for NO2 tropospheric column (µmol/m²)
 scale_min <- 0
-scale_max <- 180
+scale_max <- 170
 
 # Set TRUE to inspect data distribution and print a recommended scale_max before
 # tile generation. Leave FALSE for normal runs (skips the extra I/O pass).
@@ -149,6 +149,43 @@ no2_colors <- c(
   "#091e35",  # near-black blue
   "#061423",  # almost black
   "#030a12",  # barely blue
+  "#000000"   # black (extreme peaks)
+)
+
+# Warm ramp -> dark purple variant (dark red -> orange -> yellow -> purple)
+no2_colors <- c(
+  "#3a0808",  # very dark red (start)
+  "#4e0b0b",  # very dark red
+  "#771313",  # deep red
+  "#821616",  # deep red
+  "#991d1d",  # red
+  "#a52020",  # red
+  "#d94040",  # bright red
+  "#db4d3b",  # red-orange
+  "#e06830",  # orange
+  "#e47630",  # orange
+  "#f2a836",  # golden orange
+  "#f5b841",  # yellow-orange
+  "#f6c047",  # yellow-orange
+  "#f9d053",  # yellow
+  "#fbd859",  # yellow
+  "#fce05e",  # yellow
+  "#fee864",  # yellow
+  "#fff06a",  # bright yellow (end of warm ramp)
+  "#f0d47a",  # muted yellow
+  "#e0b58a",  # warm tan
+  "#cf9599",  # muted pink
+  "#bf75a8",  # dusty pink-purple
+  "#a85eb0",  # light purple
+  "#8b4aa3",  # purple
+  "#723c8b",  # medium purple
+  "#5b2f72",  # darker purple
+  "#4a285e",  # deep purple
+  "#3b214a",  # very deep purple
+  "#2d1937",  # dark purple
+  "#211127",  # near-black purple
+  "#170a1a",  # almost black
+  "#0c050e",  # barely purple
   "#000000"   # black (extreme peaks)
 )
 
