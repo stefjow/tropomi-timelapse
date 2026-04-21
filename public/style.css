@@ -201,13 +201,12 @@ h1 sub {
 .legend-gradient {
   height: 12px;
   border-radius: 3px;
-  /* Mirrors no2_colors in data/process.R (scale 0-170 µmol/m²).
-     Leading dark reds are skipped — in the tiles they render with low alpha
-     and disappear into the basemap, so showing them as near-black in the
-     legend misrepresents what actually appears on the map. */
+  /* Mirrors no2_colors in data/process.R (scale 0-170 µmol/m²). */
   background: linear-gradient(to right,
-    rgba(130, 22, 22, 0),
-    rgba(130, 22, 22, 0.5),
+    #3a0808,
+    #4e0b0b,
+    #771313,
+    #821616,
     #991d1d,
     #a52020,
     #d94040,

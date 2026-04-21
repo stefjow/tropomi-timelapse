@@ -22,6 +22,7 @@ Sys.setenv(GDAL_CACHEMAX = "512")
 # Best-effort cleanup of this session's tempdir on exit. R does this on normal
 # exit, but be explicit so an interrupted/resumed session still clears spill.
 on.exit(unlink(tempdir(), recursive = TRUE, force = TRUE), add = TRUE)
+on.exit(unlink(tmp_dir, recursive = TRUE, force = TRUE), add = TRUE)
 
 # Max zoom level for tile pyramid (0 = whole world in 1 tile, 3 = testing)
 # Source S5P L3 data is ~0.05° (~5 km) per pixel; that matches zoom ~5.
@@ -357,7 +358,7 @@ for (i in seq_along(tif_files)) {
   # Clear any terra spill files left over from this iteration. tmpFiles() throws
   # if there are no orphans to remove, so swallow that — it just means nothing to do.
   tryCatch(
-    terra::tmpFiles(current = FALSE, orphan = TRUE, remove = TRUE),
+    terra::tmpFiles(current = TRUE, orphan = TRUE, remove = TRUE),
     error = function(e) invisible(NULL)
   )
   gc(verbose = FALSE)
