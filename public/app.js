@@ -466,7 +466,9 @@ function stepWithinRange(delta) {
 }
 
 function updateMonthLabel() {
-  document.getElementById('month-label').textContent = formatMonth(months[currentIndex]);
+  const label = formatMonth(months[currentIndex]);
+  document.getElementById('month-label').textContent = label;
+  document.getElementById('month-overlay').textContent = label;
 }
 
 function updateBufferIndicator() {

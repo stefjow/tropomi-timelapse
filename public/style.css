@@ -26,6 +26,48 @@ html, body {
   inset: 0;
 }
 
+/* --- Current month overlay --- */
+
+.month-overlay {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 5;
+  padding: 10px 18px;
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  pointer-events: none;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  transition: left 0.3s ease, opacity 0.2s;
+}
+
+.sidebar.open ~ .month-overlay {
+  left: 296px;
+}
+
+.month-overlay:empty {
+  opacity: 0;
+}
+
+@media (max-width: 768px) {
+  .month-overlay {
+    font-size: 22px;
+    padding: 6px 12px;
+    top: 12px;
+    left: 12px;
+  }
+  .sidebar.open ~ .month-overlay {
+    opacity: 0;
+  }
+}
+
 /* --- Sidebar --- */
 
 .sidebar {
